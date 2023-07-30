@@ -1,52 +1,34 @@
-// create web server with express
-// run with node comments.js
-// open browser and go to http://localhost:8080
-
+// create web server
 var express = require('express');
+// create app
 var app = express();
-var bodyParser = require('body-parser');
-var mongoose = require('mongoose');
-var Comment = require('./models/comment');
+var path = require('path');
+app.use(express.static(path.join(__dirname, 'public')));
+// create server
+var server = require('http').createServer(app);
+// create io
+var io = require('socket.io')(server);
+// listen on port 3000
+server.listen(3000);
 
-var db = 'mongodb://localhost/example';
-mongoose.connect(db);
-
-app.set('view engine', 'ejs');
-app.use(bodyParser.urlencoded({extended: true}));
-app.use(express.static(__dirname + '/public'));
-
-// root route
-app.get('/', function(req, res) {
-    res.render('home');
-});
-
-// index route
-app.get('/comments', function(req, res) {
-    Comment.find({}, function(err, comments) {
-        if (err) {
-            console.log(err);
-        } else {
-            res.render('comments/index', {comments: comments});
-        }
-    });
-});
-
-// new route
-app.get('/comments/new', function(req, res) {
-    res.render('comments/new');
-});
-
-// create route
-app.post('/comments', function(req, res) {
-    Comment.create(req.body.comment, function(err, newComment) {
-        if (err) {
-            res.render('comments/new');
-        } else {
-            res.redirect('/comments');
-        }
-    });
-});
-
-app.listen(8080, function() {
-    console.log('server started');
+// create array to store comments
+var comments = [];
+// when a connection is made
+io.on('connection', function(socket) {
+  // send the comments array
+  socket.emit('load comments', comments);
+  // when a comment is added
+  socket.on('add comment', function(comment) {
+    // push the comment to the array
+    comments.push(comment);
+    // send the updated array to all clients
+    io.emit('load comments', comments);
+  });
+  // when a comment is removed
+  socket.on('remove comment', function(index) {
+    // remove the comment from the array
+    comments.splice(index, 1);
+    // send the updated array to all clients
+    io.emit('load comments', comments);
+  });
 });
